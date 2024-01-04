@@ -2,7 +2,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
-
+  
 // Update these with your WiFi and MQTT broker details
 const char* ssid = "XXX";
 const char* password = "xxx";

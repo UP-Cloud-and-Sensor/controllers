@@ -2,6 +2,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include <esp_sleep.h>
 #include "secret.h"
 
 #define PhSensorPin 32
@@ -10,7 +11,7 @@
 #define VREF 3.3              // analog reference voltage(Volt) of the ADC
 #define SCOUNT  30            // sum of sample point
 // #define VCC 5.0
-float adc_resolution = 4096.0;
+#define ADC_RESOLUTION 4096.0
 
 int analogBufferPH[SCOUNT];     // store the analog value in the array, read from ADC
 int analogBufferTDS[SCOUNT];
@@ -23,6 +24,9 @@ float phValue = 7.0;
 float averageVoltage = 0;
 float tdsValue = 0;
 float temperature = 25;       // current temperature for compensation
+
+RTC_DATA_ATTR int bootCount = 0;
+// Update these with your WiFi and MQTT broker details in secret.h
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -96,7 +100,8 @@ void reconnect() {
 }
 
 float calcPH (float voltage) {
-    return 7 + ((2.5 - voltage) * 2.8);
+  //Linear function from 3 pH buffer solutions
+    return -14.13*voltage + 36.51;
 }
 
 float calcTDS (float voltage) {
@@ -104,6 +109,8 @@ float calcTDS (float voltage) {
 }
 
 void setup() {
+  Serial.println("Waking up...");
+  ++bootCount;
   Serial.begin(921600);
   pinMode(PhSensorPin,INPUT);
   pinMode(TSensorPin,INPUT);
@@ -113,10 +120,6 @@ void setup() {
 }
 
 void loop() {
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
 
   static unsigned long analogSampleTimepoint = millis();
   if(millis()-analogSampleTimepoint > 40U){     //every 40 milliseconds,read the analog value from the ADC
@@ -133,34 +136,29 @@ void loop() {
   static unsigned long printTimepoint = millis();
   if(millis()-printTimepoint > 800U){
     printTimepoint = millis();
-    averageVoltage = getMedianNum(analogBufferTDS,SCOUNT) * (float)VREF / adc_resolution; 
+    averageVoltage = (float) getMedianNum(analogBufferT,SCOUNT) * (float)VREF / (float) ADC_RESOLUTION; 
+    temperature = averageVoltage * 10.0;
+    averageVoltage = (float) getMedianNum(analogBufferTDS,SCOUNT) * (float)VREF / (float) ADC_RESOLUTION; 
     float compensationCoefficient = 1.0+0.02*(temperature-25.0);
     float compensationVoltage=averageVoltage/compensationCoefficient;
     tdsValue = calcTDS(compensationVoltage);
-    // for(copyIndex=0; copyIndex<SCOUNT; copyIndex++){
-    //   analogBufferTemp[copyIndex] = analogBufferTDS[copyIndex];
-    // }
-    averageVoltage = getMedianNum(analogBufferPH,SCOUNT) * (float)VREF / adc_resolution; 
+    averageVoltage = (float) getMedianNum(analogBufferPH,SCOUNT) * (float) VREF / (float) ADC_RESOLUTION; 
     phValue = calcPH(averageVoltage);
-    // Serial.print("TDS Value:");
-    // Serial.print(tdsValue,0);
-    // Serial.println("ppm");
-    // Serial.print("pH Value:");
-    // Serial.println(phValue,0);
   }
-  // Get current local time
+  // Get current time
   String timeData = getTimeData();
 
   // Create a JSON document
-  const size_t capacity = JSON_OBJECT_SIZE(5) + 100;
+  const size_t capacity = JSON_OBJECT_SIZE(6) + 120;
   DynamicJsonDocument doc(capacity);
 
   // Add time data to the JSON document
   doc["tag"] = "UP_1";
+  doc["boot_times"] = bootCount;
   doc["time"] = timeData;
   doc["pH"] = phValue;
   doc["TDS"] = tdsValue;
-  doc["T"] = 25.0;
+  doc["T"] = temperature;
 
   // Serialize JSON to a String
   String jsonString;
@@ -168,15 +166,30 @@ void loop() {
 
   // Publish JSON data to MQTT broker
   static unsigned long sendTimepoint = millis();
+  //5 seconds
   if(millis()-sendTimepoint > 5000U){
     sendTimepoint = millis();
+    if (!client.connected()) {
+      reconnect();
+    }
     client.publish(dataTopic, jsonString.c_str());
     Serial.print("TDS Value:");
-    Serial.print(tdsValue,0);
+    Serial.print(tdsValue);
     Serial.println("ppm");
     Serial.print("pH Value:");
-    Serial.println(phValue,0);
+    Serial.println(phValue);
+    Serial.print("T:");
+    Serial.println(temperature);
+    client.loop();
   }
-  delay(1000); // Adjust the delay based on your needs
+  static unsigned long sleepTimepoint = millis();
+  //100 seconds
+  if(millis()-sleepTimepoint > 100000U)
+  {
+    Serial.println("Entering deep sleep mode");
+    esp_sleep_enable_timer_wakeup(10 * 60 * 1000000); // 10 minutes sleep
+    esp_deep_sleep_start();
+  }
+  delay(100); // Adjust the delay based on your needs
 }
 

@@ -30,8 +30,8 @@ Main board of the microcontroller:
 
 # Usage
 
-1) define all variables in secret.h (localy) \
-2) upload **main.cpp** script to ESP32 - by conecting it to micro-usb port and pushing **boot** button
+1) define all variables in secret.h (localy)
+2) upload **main.cpp** script to ESP32 - by conecting it to micro-usb port and pushing **BOOT** button
 3) connect ESP32 to power - by USB or by battery
 
 # Features
