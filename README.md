@@ -6,26 +6,13 @@ Code for ESP32 microcontroller for measuring TDS and pH level and transfering da
 - [Usage](#usage)
 - [Features](#features)
 - [Reference](#reference)
+- [Tutorials](./tutorials/README.md)
 
 # Setup
 
-Main board of the microcontroller:
+Current setup includes ESP32 microcontroller, TDS and pH level sensors for wiring check the tutorials page
 ![ESP32-microcontroller](./images/ESP32-38-PIN.jpg)
-
-## setup pH
-- VCC - 5V
-- GND - GND
-- GND - GND
-- PO  - G32
-- TO  - G33
-
 ![pH level connector](./images/bnc-ph.jpg)
-
-## setup TDS
-- RED    - 3.3V
-- BLACK  - GND
-- YELLOW - G34
-
 ![ESP32-microcontroller](./images/tds.jpg)
 
 # Usage

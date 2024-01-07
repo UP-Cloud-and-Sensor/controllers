@@ -153,7 +153,7 @@ void loop() {
   DynamicJsonDocument doc(capacity);
 
   // Add time data to the JSON document
-  doc["tag"] = "UP_1";
+  doc["tag"] = tag_name;
   doc["boot_times"] = bootCount;
   doc["time"] = timeData;
   doc["pH"] = phValue;
